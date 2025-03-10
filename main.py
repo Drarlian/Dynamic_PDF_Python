@@ -7,6 +7,14 @@ import requests
 from teste import informations
 from datetime import datetime
 
+# Lista com as URLs das imagens pré-determinadas para as 4 primeiras páginas
+default_images = [
+    "default_images/IMAGEM1.png",
+    "default_images/IMAGEM2.png",
+    "default_images/IMAGEM3.png",
+    "default_images/IMAGEM4.png"
+]
+
 
 def download_image(url):
     """Faz o download da imagem a partir de uma URL."""
@@ -88,18 +96,25 @@ def generate_pdf(products: list, output_file: str):
     elements = []
     product_count = 0  # Contador de produtos na página
 
+    for _ in default_images:
+        elements.append(PageBreak())
+
     for product in products:
         if product['product']['quantidadeCalibrada'] >= 200 or product['product']['quantidadeGeral'] >= 200:
             # Carregar a imagem do produto
             image_url = product['images'][0].get('url')
-            img = None
             if image_url:
                 image_data = download_image(image_url)
                 if image_data:
                     img = Image(image_data, width=200, height=200)
+                else:
+                    continue
+            else:
+                continue
 
             # Criar os textos do produto
-            product_name = Paragraph(f"<b>{product['product']['name'].upper()}</b>", styles['Heading2'])  # Nome maior e mais visível
+            product_name = Paragraph(f"<b>{product['product']['name'].upper()}</b>",
+                                     styles['Heading2'])  # Nome maior e mais visível
             product_color = Paragraph(f"<b>Cor:</b> {product['product']['color'].upper()}", styles['Normal'])
             product_size = Paragraph(f"<b>Tamanho:</b> {product['product']['height'].upper()}", styles['Normal'])
             product_group = Paragraph(f"<b>Grupo:</b> {product['product']['groupProduct'].upper()}", styles['Normal'])
@@ -143,36 +158,54 @@ def generate_pdf(products: list, output_file: str):
 
 def draw_page_frame(canvas, doc):
     """Desenha as barras verdes no topo e na base de cada página."""
-    width, height = A4  # Obtém tamanho da página
 
-    # Configura a cor verde
-    canvas.setFillColorRGB(0.0, 0.47, 0.35)  # Verde escuro (RGB)
+    # Caso seja uma página anterior a página 5, adiciona a imagem como Back Ground.
+    if canvas.getPageNumber() <= 4:
+        """
+        Os dois valores 0, 0 representam as coordenadas X e Y onde a imagem será desenhada na página do PDF.
 
-    # Desenha a barra superior
-    canvas.rect(0,
-                height - 68,
-                width,
-                68,
-                fill=1,
-                stroke=0)
+        Explicação:
+            O sistema de coordenadas do ReportLab começa no canto inferior esquerdo da página, onde:
+            X = 0 → Significa que a imagem começa na borda esquerda da página.
+            Y = 0 → Significa que a imagem começa na borda inferior da página.
 
-    # Desenha a barra inferior
-    canvas.rect(0,
-                -2,
-                width,
-                68,
-                fill=1,
-                stroke=0)
+        Dessa forma, a imagem será desenhada a partir do canto inferior esquerdo da página e expandida até ocupar toda 
+        a largura (width = A4[0]) e altura (height = A4[1]) da página.
+        """
+        canvas.drawImage(default_images[canvas.getPageNumber() - 1], 0, 0, width=A4[0], height=A4[1])
 
-    # Configura o texto dentro das barras
-    canvas.setFillColorRGB(1, 1, 1)  # Cor branca para o texto
-    canvas.setFont("Helvetica-Bold", 20)
+    # Desenha a página dinâmica apenas se for após a página 4.
+    else:
+        width, height = A4  # Obtém tamanho da página
 
-    # Texto superior
-    canvas.drawCentredString(width / 2, height - 42, "BAGAGGIO")
+        # Configura a cor verde
+        canvas.setFillColorRGB(0.0, 0.47, 0.35)  # Verde escuro (RGB)
 
-    # # Texto inferior
-    # canvas.drawCentredString(width / 2, 20, "")
+        # Desenha a barra superior
+        canvas.rect(0,
+                    height - 68,
+                    width,
+                    68,
+                    fill=1,
+                    stroke=0)
+
+        # Desenha a barra inferior
+        canvas.rect(0,
+                    -2,
+                    width,
+                    68,
+                    fill=1,
+                    stroke=0)
+
+        # Configura o texto dentro das barras
+        canvas.setFillColorRGB(1, 1, 1)  # Cor branca para o texto
+        canvas.setFont("Helvetica-Bold", 20)
+
+        # Texto superior
+        canvas.drawCentredString(width / 2, height - 42, "BAGAGGIO")
+
+        # # Texto inferior
+        # canvas.drawCentredString(width / 2, 20, "")
 
 
 # Exemplo de uso
