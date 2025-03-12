@@ -53,7 +53,7 @@ def generate_pdf_product_pages_test(products: list, output_file: str):
     doc.build(elements)
 
 
-def generate_pdf_table_legacy_test(products, output_file):
+def generate_pdf_table_test(products, output_file):
     """Gera um PDF contendo uma tabela com todos os produtos."""
     doc = SimpleDocTemplate(output_file, pagesize=A4)
     styles = getSampleStyleSheet()
