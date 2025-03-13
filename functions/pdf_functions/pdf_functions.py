@@ -2,19 +2,26 @@ from reportlab.lib.pagesizes import A4, A2
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Image, PageBreak, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+from datetime import datetime
 from io import BytesIO
 import requests
-
 
 # Lista com as URLs das imagens pré-determinadas para as 4 primeiras páginas
 default_images = [
     "default_images/IMAGEM1.png",
     "default_images/IMAGEM2.png",
     "default_images/IMAGEM3.png",
-    "default_images/IMAGEM4.png"
+    "default_images/IMAGEM4.png",
 ]
 
-CUSTOM_SIZE = (4000, 2250)  # Definindo um tamanho personalizado
+default_last_images = [
+    "default_images/IMAGEM5.png"
+]
+
+CUSTOM_SIZE = (1920, 1080)  # Definindo um tamanho personalizado
+
+TAMANHO_PAGINAS = 4
 
 
 def download_image(url):
@@ -166,13 +173,15 @@ def generate_pdf_personalized(products: list, output_file: str):
         O PDF gerado é uma folha A2.
     """
 
+    global TAMANHO_PAGINAS
+
     doc = SimpleDocTemplate(
         output_file,
         pagesize=CUSTOM_SIZE,
         leftMargin=0,
-        rightMargin=50,
-        topMargin=310,    # Espaço para a barra
-        bottomMargin=50
+        rightMargin=10,
+        topMargin=160,  # Espaço para a barra
+        bottomMargin=10
     )
     styles = getSampleStyleSheet()
     elements = []
@@ -184,19 +193,57 @@ def generate_pdf_personalized(products: list, output_file: str):
     big_name_style = ParagraphStyle(
         'BigName',
         parent=styles['Heading2'],
-        fontSize=60,
-        leading=75,  # -> Controla o espaçamento entre linhas do parágrafo.
-        spaceAfter=15,
+        fontSize=26,
+        leading=25,  # -> Controla o espaçamento entre linhas do parágrafo.
+        spaceAfter=5,
     )
     normal_style = ParagraphStyle(
         'MyNormal',
         parent=styles['Normal'],
+        fontSize=23,
+        leading=14,
+    )
+
+    # Titulo do Informativo:
+    inf_big_name_style = ParagraphStyle(
+        'BigName',
+        parent=styles['Heading2'],
         fontSize=50,
-        leading=14
+        leading=25,  # -> Controla o espaçamento entre linhas do parágrafo.
+        spaceAfter=100,
+        alignment=TA_CENTER
+    )
+
+    # Texto do Informativo:
+    inf_normal_style = ParagraphStyle(
+        'MyNormal',
+        parent=styles['Normal'],
+        fontSize=40,
+        leading=35,
+        spaceAfter=30,
+        alignment=TA_LEFT,
+        leftIndent=450  # Define o espaço fixo da margem esquerda
     )
 
     for _ in default_images:
         elements.append(PageBreak())
+
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph(f"INFORMATIVOS", inf_big_name_style))
+    elements.append(Paragraph(f"<b>•</b> TEXTO 1", inf_normal_style))
+    elements.append(Paragraph(f"<b>•</b> TEXTO 2", inf_normal_style))
+    elements.append(Paragraph(f"<b>•</b> TEXTO 3", inf_normal_style))
+    elements.append(Paragraph(f"<b>•</b> TEXTO 4: {datetime.now().strftime('%d/%m/%Y')}.",
+                              inf_normal_style))
+    elements.append(Paragraph(f"<b>•</b> TEXTO 5", inf_normal_style))
+    elements.append(Paragraph(f"<b>•</b> TEXTO 6",
+                              inf_normal_style))
+    elements.append(Paragraph(f"<b>•</b> TEXTO 7",
+                              inf_normal_style))
+
+    elements.append(PageBreak())
+
+    TAMANHO_PAGINAS += 1
 
     for product in products:
         if product['product']['quantidadeCalibrada'] >= 200 or product['product']['quantidadeGeral'] >= 200:
@@ -205,14 +252,15 @@ def generate_pdf_personalized(products: list, output_file: str):
             if image_url:
                 image_data = download_image(image_url)
                 if image_data:
-                    img = Image(image_data, width=800, height=800)
+                    img = Image(image_data, width=300, height=300)
                 else:
                     continue
             else:
                 continue
 
             # Criar os textos do produto
-            product_name = Paragraph(f"<b>{product['product']['name'].upper()}</b>", big_name_style)
+            name: str = product['product']['name'].upper()
+            product_name = Paragraph(f"<b>{name.split('-')[0] if 'TAMANHO' in name else name}</b>", big_name_style)
 
             product_color = Paragraph(f"<b>Cor:</b> {product['product']['color'].upper()}", normal_style)
             product_size = Paragraph(f"<b>Tamanho:</b> {product['product']['height'].upper()}", normal_style)
@@ -220,18 +268,26 @@ def generate_pdf_personalized(products: list, output_file: str):
             product_price = Paragraph(f"<b>Preço:</b> R$ {product['product']['custo']:.2f}", normal_style)
             product_material = Paragraph(f"<b>Material:</b> {product['product']['material'].upper()}", normal_style)
             product_polegadas = Paragraph(f"<b>Polegadas:</b> {product['product']['polegadas'].upper()}", normal_style)
+            product_sku = Paragraph(f"<b>SKU:</b> {product['product']['sku'].upper()}", normal_style)
 
             # Criar tabela com imagem (esquerda) e informações (direita)
-            data = [[img, [product_name, Spacer(1, 80), product_color,
-                           Spacer(1, 60), product_size, Spacer(1, 60),
-                           product_group, Spacer(1, 60), product_price,
-                           Spacer(1, 60), product_material,
-                           Spacer(1, 60), product_polegadas]]]
+            data = [
+                [
+                    img,
+                    [product_name, Spacer(1, 16), product_color,
+                     Spacer(1, 16), product_size, Spacer(1, 16),
+                     product_group, Spacer(1, 16), product_price,
+                     Spacer(1, 16), product_material,
+                     Spacer(1, 16), product_polegadas,
+                     Spacer(1, 16), product_sku
+                     ]
+                ],
+                [Spacer(1, 60)]]
 
-            table = Table(data, colWidths=[750, 1500])
+            table = Table(data, colWidths=[325, 910])
             table.setStyle(TableStyle([
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Mantém alinhado verticalmente
-                ('LEFTPADDING', (1, 0), (1, 0), 20),  # Espaço entre imagem e texto
+                ('LEFTPADDING', (1, 0), (1, 0), 0),  # Espaço entre imagem e texto
                 ('ALIGN', (1, 0), (1, -1), 'LEFT'),  # Texto alinhado à esquerda
                 # ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.grey),
                 # ('BOX', (0, 0), (-1, -1), 0.5, colors.grey),
@@ -254,9 +310,9 @@ def generate_pdf_personalized(products: list, output_file: str):
 
                 complete_table.setStyle(TableStyle([
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Mantém alinhado verticalmente
-                    ('LEFTPADDING', (1, 0), (1, 0), 20),  # Espaço entre imagem e texto
-                    ('TOPPADDING', (0, 0), (-1, -1), 20),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 20),
+                    ('LEFTPADDING', (1, 0), (1, 0), 10),  # Espaço entre imagem e texto
+                    ('TOPPADDING', (0, 0), (-1, -1), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
                     ('ALIGN', (1, 0), (1, -1), 'LEFT'),  # Texto alinhado à esquerda
                 ]))
 
@@ -264,6 +320,8 @@ def generate_pdf_personalized(products: list, output_file: str):
                 elements.append(PageBreak())
                 product_rows = []  # Reinicia as linhas de produtos
                 product_count = 0  # Reinicia o contador
+
+                TAMANHO_PAGINAS += 1
 
     # Adiciona qualquer produto restante que não completou um bloco de 4
     if row:
@@ -273,10 +331,19 @@ def generate_pdf_personalized(products: list, output_file: str):
         table = Table(product_rows, hAlign='LEFT')
         table.setStyle(TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Mantém alinhado verticalmente
-            ('LEFTPADDING', (1, 0), (1, 0), 20),  # Espaço entre imagem e texto
+            ('LEFTPADDING', (1, 0), (1, 0), 15),  # Espaço entre imagem e texto
+            ('TOPPADDING', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
             ('ALIGN', (1, 0), (1, -1), 'LEFT'),  # Texto alinhado à esquerda
         ]))
         elements.append(table)
+        elements.append(PageBreak())
+
+        TAMANHO_PAGINAS += 1
+
+    elements.append(PageBreak())
+
+    TAMANHO_PAGINAS += 1
 
     # onFirstPage -> Define que a função draw_page_frame(canvas, doc) será chamada na primeira página do PDF para
     # desenhar algo (neste caso, as barras superior e inferior).
@@ -343,6 +410,8 @@ def draw_page_frame(canvas, doc):
 def draw_page_frame_personalized(canvas, doc):
     """Desenha as barras verdes no topo e na base de cada página."""
 
+    global TAMANHO_PAGINAS
+
     # Caso seja uma página anterior a página 5, adiciona a imagem como Back Ground.
     if canvas.getPageNumber() <= 4:
         """
@@ -358,6 +427,10 @@ def draw_page_frame_personalized(canvas, doc):
         """
         canvas.drawImage(default_images[canvas.getPageNumber() - 1], 0, 0, width=CUSTOM_SIZE[0], height=CUSTOM_SIZE[1])
 
+    # Se for a última página, adiciona um background específico
+    elif TAMANHO_PAGINAS == canvas.getPageNumber():
+        canvas.drawImage("default_images/IMAGEM5.png", 0, 0, width=CUSTOM_SIZE[0], height=CUSTOM_SIZE[1])
+
     # Desenha a página dinâmica apenas se for após a página 4.
     else:
         width, height = CUSTOM_SIZE  # Obtém tamanho da página
@@ -367,9 +440,9 @@ def draw_page_frame_personalized(canvas, doc):
 
         # Desenha a barra superior
         canvas.rect(0,
-                    height - 180,
+                    height - 90,
                     width,
-                    180,
+                    90,
                     fill=1,
                     stroke=0)
 
@@ -377,16 +450,16 @@ def draw_page_frame_personalized(canvas, doc):
         canvas.rect(0,
                     -2,
                     width,
-                    180,
+                    90,
                     fill=1,
                     stroke=0)
 
         # Configura o texto dentro das barras
         canvas.setFillColorRGB(1, 1, 1)  # Cor branca para o texto
-        canvas.setFont("Helvetica-Bold", 80)
+        canvas.setFont("Helvetica-Bold", 50)
 
         # Texto superior
-        canvas.drawCentredString(width / 2, height - 120, "NOME DA EMPRESA")
+        canvas.drawCentredString(width / 2, height - 60, "NOME DA EMPRESA")
 
         # # Texto inferior
         # canvas.drawCentredString(width / 2, 20, "")
